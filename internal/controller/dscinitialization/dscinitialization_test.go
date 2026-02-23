@@ -74,6 +74,23 @@ var _ = Describe("DataScienceCluster initialization", func() {
 			Expect(foundNetworkPolicy.Name).To(Equal(applicationNamespace))
 			Expect(foundNetworkPolicy.Namespace).To(Equal(applicationNamespace))
 			Expect(foundNetworkPolicy.Spec.PolicyTypes[0]).To(Equal(networkingv1.PolicyTypeIngress))
+
+			// Verify that kuadrant-system namespace is allowed in ingress rules
+			kuadrantAllowed := false
+			for _, rule := range foundNetworkPolicy.Spec.Ingress {
+				for _, peer := range rule.From {
+					if peer.NamespaceSelector != nil {
+						if val, ok := peer.NamespaceSelector.MatchLabels["kubernetes.io/metadata.name"]; ok && val == "kuadrant-system" {
+							kuadrantAllowed = true
+							break
+						}
+					}
+				}
+				if kuadrantAllowed {
+					break
+				}
+			}
+			Expect(kuadrantAllowed).To(BeTrue(), "NetworkPolicy should allow ingress from kuadrant-system namespace")
 		})
 
 		It("Should not create user group when we do not have authentications CR in the cluster", func(ctx context.Context) {
